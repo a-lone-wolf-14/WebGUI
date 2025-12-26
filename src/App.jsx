@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Activity, Battery, Thermometer, Droplets, Gauge, Zap, Video, ArrowLeft } from 'lucide-react';
-import './App.css'; // Make sure your CSS file is named App.css or index.css
+import { Activity, Battery, Flashlight, Droplets, Gauge, Zap, Video, ArrowLeft, Compass } from 'lucide-react';
+import './App.css';
 
 const RobotDashboard = () => {
   const [currentPage, setCurrentPage] = useState('telemetry');
   const [selectedCamera, setSelectedCamera] = useState('front1');
   const [speed, setSpeed] = useState({ x: 0, y: 0, z: 0 });
-  const [pwm, setPwm] = useState({ FL: 0, FR: 0, RL: 0, RR: 0, SL: 0, SR: 0, SF: 0, SB: 0 });
-  const [battery, setBattery] = useState({ level: 0, temp: 0 });
+  const [pwm, setPwm] = useState({ FL: 0, FR: 0, BL: 0, BR: 0, SL: 0, SR: 0, SF: 0, SB: 0 });
+  const [battery, setBattery] = useState({ level: 0, temp: 0, voltage: 0 });
   const [flashlight, setFlashlight] = useState(0);
   const [bar30, setBar30] = useState({ pressure: 0, temp: 0 });
   const [connected, setConnected] = useState(false);
+  const [imu, setImu] = useState({ yaw: 0, pitch: 0, roll: 0 });
+  const [angularVelocity, setAngularVelocity] = useState({ yaw: 0, pitch: 0, roll: 0 });
 
   const videoRef = useRef(null);
 
@@ -20,6 +22,42 @@ const RobotDashboard = () => {
     { value: 'rear', label: 'Rear Camera' },
     { value: 'gripper', label: 'Gripper Camera' }
   ];
+
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:8765");
+
+    ws.onopen = () => {
+      setConnected(true);
+    };
+
+    ws.onclose = () => {
+      setConnected(false);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        console.log("EVENT VS DATA: ", event.data);
+        // incoming STRING
+        const data = JSON.parse(event.data);
+        console.log("PARSED: ", data);
+
+        if (data.speed) setSpeed(data.speed);
+        if (data.pwm) setPwm(data.pwm);
+        if (data.battery) setBattery(data.battery);
+        if (data.flashlight !== undefined) setFlashlight(data.flashlight);
+        if (data.bar30) setBar30(data.bar30);
+        if (data.imu) setImu(data.imu);
+        if (data.angularVelocity) setAngularVelocity(data.angularVelocity);
+
+      } catch (err) {
+        console.error("Invalid telemetry data");
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
 
   // useEffect(() => {
   //   // WebSocket simulation logic remains the same
@@ -32,8 +70,8 @@ const RobotDashboard = () => {
   //     setPwm({
   //       FL: Math.floor(Math.random() * 255),
   //       FR: Math.floor(Math.random() * 255),
-  //       RL: Math.floor(Math.random() * 255),
-  //       RR: Math.floor(Math.random() * 255),
+  //       BL: Math.floor(Math.random() * 255),
+  //       BR: Math.floor(Math.random() * 255),
   //       SL: Math.floor(Math.random() * 255),
   //       SR: Math.floor(Math.random() * 255),
   //       SF: Math.floor(Math.random() * 255),
@@ -63,6 +101,50 @@ const RobotDashboard = () => {
   const TelemetryPage = () => (
     <div className="telemetry-wrapper">
       <div className="telemetry-grid">
+        {/* IMU Card */}
+        <div className="card">
+          <div className="card-header">
+            <Compass className="icon-red" size={20} />
+            <h3 className="card-title">IMU</h3>
+          </div>
+          <div className="card-body">
+            <div className="data-row">
+              <span className="data-label">Yaw:</span>
+              <span className="data-value red">{imu.yaw.toFixed(1)}°</span>
+            </div>
+            <div className="data-row">
+              <span className="data-label">Pitch:</span>
+              <span className="data-value red">{imu.pitch.toFixed(1)}°</span>
+            </div>
+            <div className="data-row">
+              <span className="data-label">Roll:</span>
+              <span className="data-value red">{imu.roll.toFixed(1)}°</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <Compass className="icon-red" size={20} />
+            <h3 className="card-title">Angular Velocity</h3>
+          </div>
+          <div className="card-body">
+            {/* <h4 className="text-sm text-gray-400 mb-2 font-medium">Angular Velocity (deg/s)</h4> */}
+            <div className="data-row">
+              <span className="data-label">Yaw:</span>
+              <span className="data-value cyan">{angularVelocity.yaw.toFixed(1)} rad/s</span>
+            </div>
+            <div className="data-row">
+              <span className="data-label">Pitch:</span>
+              <span className="data-value cyan">{angularVelocity.pitch.toFixed(1)} rad/s</span>
+            </div>
+            <div className="data-row">
+              <span className="data-label">Roll:</span>
+              <span className="data-value cyan">{angularVelocity.roll.toFixed(1)} rad/s</span>
+            </div>
+          </div>
+        </div>
+
         {/* Speed Card */}
         <div className="card">
           <div className="card-header">
@@ -72,15 +154,15 @@ const RobotDashboard = () => {
           <div className="card-body">
             <div className="data-row">
               <span className="data-label">X:</span>
-              <span className="data-value cyan">{speed.x}</span>
+              <span className="data-value cyan">{speed.x.toFixed(1)} m/s</span>
             </div>
             <div className="data-row">
               <span className="data-label">Y:</span>
-              <span className="data-value cyan">{speed.y}</span>
+              <span className="data-value cyan">{speed.y.toFixed(1)} m/s</span>
             </div>
             <div className="data-row">
               <span className="data-label">Z:</span>
-              <span className="data-value cyan">{speed.z}</span>
+              <span className="data-value cyan">{speed.z.toFixed(1)} m/s</span>
             </div>
           </div>
         </div>
@@ -95,7 +177,7 @@ const RobotDashboard = () => {
             <div className="data-row">
               <span className="data-label">Level:</span>
               <span className={`data-value ${getBatteryColorClass(battery.level)}`}>
-                {battery.level.toFixed(1)}%
+                {battery.level.toFixed(1)}% ({battery.voltage.toFixed(1)}V)
               </span>
             </div>
             <div className="progress-bar-container">
@@ -132,7 +214,7 @@ const RobotDashboard = () => {
         {/* Flashlight Card */}
         <div className="card">
           <div className="card-header">
-            <Zap className={flashlight ? 'icon-yellow' : 'icon-gray'} size={20} />
+            <Flashlight className={flashlight ? 'icon-yellow' : 'icon-gray'} size={20} />
             <h3 className="card-title">Flashlight</h3>
           </div>
           <div className={`flashlight-status ${flashlight ? 'on' : 'off'}`}>
@@ -157,7 +239,7 @@ const RobotDashboard = () => {
               <div className="progress-bar-container">
                 <div
                   className="progress-bar cyan"
-                  style={{ width: `${(value / 255) * 100}%` }}
+                  style={{ width: `${((value - 800) / 800) * 100}%` }}
                 />
               </div>
             </div>
